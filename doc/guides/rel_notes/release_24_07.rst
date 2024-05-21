@@ -73,6 +73,10 @@ New Features
   ``bpf_obj_get()`` for an xskmap pinned (by the AF_XDP DP) inside the
   container.
 
+* **Update Tap PMD driver.**
+
+  * Updated to support up to 8 queues when used by secondary process.
+
 * **Updated Wangxun ngbe driver.**
 
   * Added SSE/NEON vector datapath.
