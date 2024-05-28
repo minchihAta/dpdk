@@ -65,6 +65,11 @@ New Features
     reducing the number of mempool allocs needed, thereby increasing DMA
     performance.
 
+* **Updated Marvell cnxk net driver.**
+
+  * Added support disabling custom meta aura and separately use custom
+    SA action support.
+
 
 Removed Items
 -------------
