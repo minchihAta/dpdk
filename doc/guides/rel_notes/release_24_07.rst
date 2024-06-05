@@ -81,6 +81,10 @@ New Features
 
   * Added SSE/NEON vector datapath.
 
+* **Updated NVIDIA mlx5 driver.**
+
+  * Added match with Tx queue.
+
 
 Removed Items
 -------------
