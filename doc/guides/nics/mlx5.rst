@@ -170,6 +170,7 @@ Features
 - Matching on represented port.
 - Matching on aggregated affinity.
 - Matching on external Tx queue.
+- Matching on E-Switch manager.
 
 
 Limitations
@@ -910,6 +911,10 @@ Limitations
   The flow engine of a process cannot move from active to standby mode
   if preceding active application rules are still present and vice versa.
 
+- In switch mode, flow rule matching ``RTE_FLOW_ACTION_TYPE_REPRESENTED_PORT``
+  item with port_id ``UINT16_MAX`` means matching with packets sent by E-Switch
+  manager from software. Need MLNX_OFED 24.04+.
+
 
 Statistics
 ----------
@@ -1585,6 +1590,7 @@ entities on the HCA.
 With this configuration, mlx5 PMD supports:
 
 - matching traffic coming from physical port, PF, VF or SF using REPRESENTED_PORT items;
+- matching traffic coming from E-Switch manager using REPRESENTED_PORT item with port_id UINT16_MAX;
 - forwarding traffic to physical port, PF, VF or SF using REPRESENTED_PORT actions;
 
 Requirements
