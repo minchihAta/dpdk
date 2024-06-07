@@ -160,21 +160,24 @@ print_stats(void)
 	fflush(stdout);
 }
 
-static void
-l2fwd_mac_updating(struct rte_mbuf *m, unsigned dest_portid)
-{
-	struct rte_ether_hdr *eth;
-	void *tmp;
+struct arphdr {
+    uint16_t ar_hrd;                /* Format of hardware address.  */
+    uint16_t ar_pro;                /* Format of protocol address.  */
+    uint8_t ar_hln;                /* Length of hardware address.  */
+    uint8_t ar_pln;                /* Length of protocol address.  */
+    uint16_t ar_op;                /* ARP opcode (command).  */
+};
 
-	eth = rte_pktmbuf_mtod(m, struct rte_ether_hdr *);
+struct ether_arp {
+    struct arphdr ea_hdr;      /* fixed-size header */
+    uint8_t arp_sha[6];        /* sender hardware address */
+    uint8_t arp_spa[4];        /* sender protocol address */
+    uint8_t arp_tha[6];        /* target hardware address */
+    uint8_t arp_tpa[4];        /* target protocol address */
+};
 
-	/* 02:00:00:00:00:xx */
-	tmp = &eth->d_addr.addr_bytes[0];
-	*((uint64_t *)tmp) = 0x000000000002 + ((uint64_t)dest_portid << 40);
-
-	/* src addr */
-	rte_ether_addr_copy(&l2fwd_ports_eth_addr[dest_portid], &eth->s_addr);
-}
+# define ARPOP_REQUEST 0x0100
+# define ARPOP_REPLY 0x0200
 
 static void
 l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
@@ -185,8 +188,37 @@ l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
 
 	dst_port = l2fwd_dst_ports[portid];
 
-	if (mac_updating)
-		l2fwd_mac_updating(m, dst_port);
+	struct rte_ether_hdr *eth;
+	uint64_t pkt_src_mac = 0;
+	uint64_t pkt_dst_mac = 0;
+	uint32_t arp_sender_ip = 0;
+	uint32_t arp_target_ip = 0;
+	eth = rte_pktmbuf_mtod(m, struct rte_ether_hdr *);
+	struct ether_arp* arp_h = (struct ether_arp*)(eth+1);
+	if (eth->ether_type != 0x0608) {
+		rte_pktmbuf_free(m);
+		return;
+	}
+	if (arp_h->ea_hdr.ar_op == ARPOP_REPLY) {
+		rte_pktmbuf_free(m);
+		return;
+	}
+
+	rte_ether_addr_copy(&l2fwd_ports_eth_addr[portid], &pkt_dst_mac);
+	memcpy(&pkt_src_mac, eth->s_addr.addr_bytes, 6);
+	memcpy(&arp_sender_ip, arp_h->arp_spa, 4);
+	memcpy(&arp_target_ip, arp_h->arp_tpa, 4);
+
+	// swap eth header
+	memcpy(eth->s_addr.addr_bytes, &pkt_dst_mac, 6);
+	memcpy(eth->d_addr.addr_bytes, &pkt_src_mac, 6);
+
+	// prepare arp reply
+	arp_h->ea_hdr.ar_op = ARPOP_REPLY;
+	memcpy(arp_h->arp_spa, &arp_target_ip, 4);
+	memcpy(arp_h->arp_tpa, &arp_sender_ip, 4);
+	memcpy(arp_h->arp_sha, &pkt_dst_mac, 6);
+	memcpy(arp_h->arp_tha, &pkt_src_mac, 6);
 
 	buffer = tx_buffer[dst_port];
 	sent = rte_eth_tx_buffer(dst_port, 0, buffer, m);
