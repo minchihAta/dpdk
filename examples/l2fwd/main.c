@@ -195,6 +195,9 @@ l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
 	uint32_t arp_target_ip = 0;
 	eth = rte_pktmbuf_mtod(m, struct rte_ether_hdr *);
 	struct ether_arp* arp_h = (struct ether_arp*)(eth+1);
+	int lcore_id = rte_lcore_id();
+	char msg[100] = {0};
+	
 	if (eth->ether_type != 0x0608) {
 		rte_pktmbuf_free(m);
 		return;
@@ -203,6 +206,13 @@ l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
 		rte_pktmbuf_free(m);
 		return;
 	}
+
+	snprintf(msg, 100, "receive arp req with src eth: %hhx:%hhx:%hhx:%hhx:%hhx:%hhx, dst eth: %hhx:%hhx:%hhx:%hhx:%hhx:%hhx\n"
+		, eth->s_addr.addr_bytes[0], eth->s_addr.addr_bytes[1], eth->s_addr.addr_bytes[2]
+		, eth->s_addr.addr_bytes[3], eth->s_addr.addr_bytes[4], eth->s_addr.addr_bytes[5]
+		, eth->d_addr.addr_bytes[0], eth->d_addr.addr_bytes[1], eth->d_addr.addr_bytes[2]
+		, eth->d_addr.addr_bytes[3], eth->d_addr.addr_bytes[4], eth->d_addr.addr_bytes[5]);
+	RTE_LOG(INFO, L2FWD, "%s", msg);
 
 	rte_ether_addr_copy(&l2fwd_ports_eth_addr[portid], &pkt_dst_mac);
 	memcpy(&pkt_src_mac, eth->s_addr.addr_bytes, 6);
@@ -224,6 +234,14 @@ l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
 	sent = rte_eth_tx_buffer(dst_port, 0, buffer, m);
 	if (sent)
 		port_statistics[dst_port].tx += sent;
+	
+	snprintf(msg, 100, "receive arp reply with src eth: %hhx:%hhx:%hhx:%hhx:%hhx:%hhx, dst eth: %hhx:%hhx:%hhx:%hhx:%hhx:%hhx\n"
+		, eth->s_addr.addr_bytes[0], eth->s_addr.addr_bytes[1], eth->s_addr.addr_bytes[2]
+		, eth->s_addr.addr_bytes[3], eth->s_addr.addr_bytes[4], eth->s_addr.addr_bytes[5]
+		, eth->d_addr.addr_bytes[0], eth->d_addr.addr_bytes[1], eth->d_addr.addr_bytes[2]
+		, eth->d_addr.addr_bytes[3], eth->d_addr.addr_bytes[4], eth->d_addr.addr_bytes[5]);
+	RTE_LOG(INFO, L2FWD, "%s", msg);
+	
 }
 
 /* main processing loop */
@@ -294,7 +312,7 @@ l2fwd_main_loop(void)
 
 					/* do this only on main core */
 					if (lcore_id == rte_get_main_lcore()) {
-						print_stats();
+						//print_stats();
 						/* reset the timer */
 						timer_tsc = 0;
 					}
