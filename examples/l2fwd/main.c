@@ -39,6 +39,11 @@
 #include <rte_mempool.h>
 #include <rte_mbuf.h>
 #include <rte_string_fns.h>
+#include <rte_ip.h>
+
+#include "shm.h"
+
+shm_table_t* shm_table = NULL;
 
 static volatile bool force_quit;
 
@@ -207,6 +212,9 @@ l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
 		return;
 	}
 
+	// send arp req back to rx port
+	dst_port = portid;
+
 	snprintf(msg, 100, "receive arp req with src eth: %hhx:%hhx:%hhx:%hhx:%hhx:%hhx, dst eth: %hhx:%hhx:%hhx:%hhx:%hhx:%hhx\n"
 		, eth->s_addr.addr_bytes[0], eth->s_addr.addr_bytes[1], eth->s_addr.addr_bytes[2]
 		, eth->s_addr.addr_bytes[3], eth->s_addr.addr_bytes[4], eth->s_addr.addr_bytes[5]
@@ -218,6 +226,11 @@ l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
 	memcpy(&pkt_src_mac, eth->s_addr.addr_bytes, 6);
 	memcpy(&arp_sender_ip, arp_h->arp_spa, 4);
 	memcpy(&arp_target_ip, arp_h->arp_tpa, 4);
+
+	if (arp_target_ip != shm_table->port_info[portid].ip_addr) {
+		snprintf(msg, 100, "target_ip: %x, iface local ip: %x\n", arp_target_ip, shm_table->port_info[portid].ip_addr);
+		RTE_LOG(INFO, L2FWD, "%s", msg);
+	}
 
 	// swap eth header
 	memcpy(eth->s_addr.addr_bytes, &pkt_dst_mac, 6);
@@ -682,6 +695,13 @@ signal_handler(int signum)
 	}
 }
 
+static void init_shm_table()
+{
+	shm_table = init_shm(SHM_INIT);
+	shm_table->port_info[0].ip_addr = 0xa0016c6;
+	shm_table->port_info[1].ip_addr = 0xa0015c6;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -694,6 +714,9 @@ main(int argc, char **argv)
 	unsigned nb_ports_in_mask = 0;
 	unsigned int nb_lcores = 0;
 	unsigned int nb_mbufs;
+
+	/* init shm table value */
+	init_shm_table();
 
 	/* init EAL */
 	ret = rte_eal_init(argc, argv);
